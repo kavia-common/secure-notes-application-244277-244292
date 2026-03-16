@@ -1,10 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #000000;
-  --color-secondary: #FFFFFF;
+  --color-primary: #1b1a22;
+  --color-secondary: #ffffff;
   --color-accent: #3B82F6;
-  --color-background: #FFFFFF;
+  --color-background: #f2efe9;
+  --color-retro-green: #aee571;
+  --color-retro-yellow: #fff799;
+  --color-retro-blue: #7ca6f7;
+  --color-retro-pink: #f9b5e1;
+  --color-retro-ink: #33363b;
+  --note-radius: 8px;
+  --note-shadow: 0 2px 15px rgba(0,0,0,0.09);
+  --note-border: 2px solid #e4e0d2;
 }
 
 * {
@@ -22,5 +30,106 @@ body {
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Mono', 'Courier New', Courier, monospace;
+  background: var(--color-background);
+  min-height: 100vh;
+  letter-spacing: 0.02em;
+}
+
+/* Retro themed headers and sidebar */
+.header-bar {
+  background: linear-gradient(90deg, var(--color-retro-yellow), var(--color-retro-blue));
+  border-bottom: 2px dashed var(--color-retro-ink);
+  color: var(--color-primary);
+  font-family: 'IBM Plex Mono', monospace;
+  padding: 0.85rem 2rem;
+  letter-spacing: 0.1em;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, var(--color-retro-green), #eed9e1 75%);
+  min-width: 240px;
+  padding: 1rem 0;
+  border-right: 2px dashed var(--color-retro-ink);
+  display: flex;
+  flex-direction: column;
+}
+
+.note-list {
+  list-style: none;
+  padding: 0;
+}
+
+a, .button-link {
+  color: #2d388a;
+  text-decoration: none;
+  transition: color 0.18s;
+}
+
+a:hover, .button-link:hover {
+  color: var(--color-retro-pink);
+}
+
+.retro-tag {
+  height: 26px;
+  padding: 2px 13px;
+  border-radius: 13px;
+  font-size: 1em;
+  font-family: inherit;
+  background: #fff799;
+  color: #33363b;
+  margin: 0 0.4rem 0.18rem 0;
+  border: 1px solid #c7c87c;
+  display: inline-flex;
+  align-items: center;
+}
+.note-card {
+  background: var(--color-secondary);
+  border-radius: var(--note-radius);
+  border: var(--note-border);
+  box-shadow: var(--note-shadow);
+  margin-bottom: 1.2rem;
+  padding: 1.2rem 1.2rem 1.2rem 1.6rem;
+  font-family: inherit;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.note-card.selected, .note-card:hover {
+  border-color: var(--color-retro-pink);
+  box-shadow: 0 3px 20px #f9b5e188;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  border: 1.5px solid #d9d6cf;
+  border-radius: 4px;
+  padding: 0.45rem 0.8rem;
+  margin-bottom: 0.9rem;
+  background: #fcfaf3;
+  outline: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-retro-blue);
+}
+
+.pin-star {
+    color: #ffd600;
+    font-size: 1.2em;
+    vertical-align: middle;
+}
+.favorite-star {
+    color: #ff6384;
+    font-size: 1.2em;
+    vertical-align: middle;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  background: #f5f5ef;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ddd3f1;
+  border-radius: 6px;
 }
