@@ -1,7 +1,7 @@
 import { Note, Tag, User, AuthResponse, NotesQuery } from './types';
 
 // Set backend URL via environment variable for easy config.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/";
 
 /**
  * Helper to get auth token from localStorage.
@@ -15,25 +15,35 @@ function getToken() {
 
 /**
  * PUBLIC_INTERFACE
- * Generic HTTP request helper.
+ * Generic HTTP request helper, robust error handling.
  */
-async function apiRequest(path: string, options: RequestInit = {}) {
+export async function apiFetch<T = any>(url: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
         ...(options.headers ? options.headers as Record<string, string> : {}),
+        "Content-Type": "application/json",
     };
     const token = getToken();
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    headers['Content-Type'] = 'application/json';
-    const res = await fetch(`${API_BASE}${path}`, {
+    const resp = await fetch(`${API_BASE_URL}${url.startsWith("/") ? url : `/${url}`}`, {
         ...options,
         headers,
+        credentials: "include",
     });
-    if (!res.ok) {
-        throw new Error(await res.text());
+    if (!resp.ok) {
+        let detail;
+        try {
+            detail = await resp.json();
+        } catch {
+            detail = { error: await resp.text() };
+        }
+        throw new Error(
+            detail?.detail ?? detail?.error ?? resp.statusText ?? "Server error"
+        );
     }
-    return res.json();
+    if (resp.status === 204) return undefined as any;
+    return resp.json();
 }
 
 /**
@@ -41,7 +51,7 @@ async function apiRequest(path: string, options: RequestInit = {}) {
  * Register a new user.
  */
 export async function register(email: string, password: string): Promise<AuthResponse> {
-    return apiRequest('/auth/register', {
+    return apiFetch('/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
     });
@@ -49,13 +59,30 @@ export async function register(email: string, password: string): Promise<AuthRes
 
 /**
  * PUBLIC_INTERFACE
- * Login.
+ * Login a user (returns { access_token }).
  */
 export async function login(email: string, password: string): Promise<AuthResponse> {
-    return apiRequest('/auth/login', {
+    // FastAPI login expects application/x-www-form-urlencoded for login
+    const body = new URLSearchParams({ username: email, password });
+    const resp = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
     });
+    if (!resp.ok) {
+        let detail;
+        try {
+            detail = await resp.json();
+        } catch {
+            detail = { error: await resp.text() };
+        }
+        throw new Error(
+            detail?.detail ?? detail?.error ?? resp.statusText ?? "Server error"
+        );
+    }
+    return resp.json();
 }
 
 /**
@@ -63,7 +90,7 @@ export async function login(email: string, password: string): Promise<AuthRespon
  * Get user profile.
  */
 export async function getProfile(): Promise<User> {
-    return apiRequest('/auth/profile');
+    return apiFetch('/auth/me');
 }
 
 /**
@@ -74,13 +101,13 @@ export async function getNotes(query?: NotesQuery): Promise<Note[]> {
     let q = '';
     if (query) {
         const params = new URLSearchParams();
-        if (query.search) params.append('search', query.search);
-        if (query.tags) query.tags.forEach(t => params.append('tags', t));
+        if (query.search) params.append('query', query.search);
+        if (query.tags) query.tags.forEach(t => params.append('tag_ids', t));
         if (query.pinned !== undefined) params.append('pinned', String(query.pinned));
         if (query.favorite !== undefined) params.append('favorite', String(query.favorite));
         q = '?' + params.toString();
     }
-    return apiRequest(`/notes${q}`);
+    return apiFetch(`/notes/${q}`);
 }
 
 /**
@@ -88,7 +115,7 @@ export async function getNotes(query?: NotesQuery): Promise<Note[]> {
  * Create a new note.
  */
 export async function createNote(note: Partial<Note>): Promise<Note> {
-    return apiRequest('/notes', {
+    return apiFetch('/notes/', {
         method: 'POST',
         body: JSON.stringify(note),
     });
@@ -99,7 +126,7 @@ export async function createNote(note: Partial<Note>): Promise<Note> {
  * Update a note by id.
  */
 export async function updateNote(id: string, note: Partial<Note>): Promise<Note> {
-    return apiRequest(`/notes/${id}`, {
+    return apiFetch(`/notes/${id}`, {
         method: 'PUT',
         body: JSON.stringify(note),
     });
@@ -110,7 +137,7 @@ export async function updateNote(id: string, note: Partial<Note>): Promise<Note>
  * Delete a note.
  */
 export async function deleteNote(id: string): Promise<void> {
-    await apiRequest(`/notes/${id}`, {
+    await apiFetch(`/notes/${id}`, {
         method: 'DELETE',
     });
 }
@@ -120,7 +147,7 @@ export async function deleteNote(id: string): Promise<void> {
  * Get all tags.
  */
 export async function getTags(): Promise<Tag[]> {
-    return apiRequest('/tags');
+    return apiFetch('/tags/');
 }
 
 /**
@@ -128,9 +155,8 @@ export async function getTags(): Promise<Tag[]> {
  * Create a tag.
  */
 export async function createTag(name: string): Promise<Tag> {
-    return apiRequest('/tags', {
+    return apiFetch('/tags/', {
         method: 'POST',
         body: JSON.stringify({ name }),
     });
 }
-

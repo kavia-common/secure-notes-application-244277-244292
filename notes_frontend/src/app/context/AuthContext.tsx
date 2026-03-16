@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
  * PUBLIC_INTERFACE
- * AuthContextProvider wraps children with auth state.
+ * AuthContextProvider wraps children with auth state, and provides robust error handling.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);

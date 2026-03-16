@@ -8,6 +8,7 @@ interface NotesContextValue {
     selectedNote: Note | null;
     tags: Tag[];
     loading: boolean;
+    error: string | null;
     search: string;
     setSearch: (v: string) => void;
     filter: NotesQuery;
@@ -22,25 +23,44 @@ interface NotesContextValue {
     createTag: (name: string) => Promise<void>;
 }
 
+// PUBLIC_INTERFACE
 const NotesContext = createContext<NotesContextValue | undefined>(undefined);
 
+/**
+ * PUBLIC_INTERFACE
+ * NotesProvider wraps children with notes and tags state, robust error handling, and async actions.
+ */
 export function NotesProvider({ children }: { children: React.ReactNode }) {
     const [notes, setNotes] = useState<Note[]>([]);
     const [selectedNote, setSelectedNote] = useState<Note | null>(null);
     const [tags, setTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<NotesQuery>({});
 
-    // Fetch all notes (with current filter).
+    function getErrorMessage(e: unknown): string {
+        if (typeof e === "string") {
+            return e;
+        } else if (typeof e === "object" && e !== null && "message" in e) {
+            const maybeErr = e as { message?: unknown };
+            if (typeof maybeErr.message === "string") return maybeErr.message;
+        }
+        return "Unknown error";
+    }
+
     const refresh = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
             const ns = await getNotes({
                 ...filter,
                 search,
             });
             setNotes(ns);
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+            setNotes([]);
         } finally {
             setLoading(false);
         }
@@ -48,8 +68,14 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
     // Fetch all tags.
     const loadTags = useCallback(async () => {
-        const tgs = await getTags();
-        setTags(tgs);
+        setError(null);
+        try {
+            const tgs = await getTags();
+            setTags(tgs);
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+            setTags([]);
+        }
     }, []);
 
     useEffect(() => {
@@ -63,46 +89,81 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
     const newNote = async () => {
         setLoading(true);
-        const nt = await createNote({ title: '', content: '', tags: [], pinned: false, favorite: false });
-        setSelectedNote(nt);
-        await refresh();
-        setLoading(false);
+        setError(null);
+        try {
+            const nt = await createNote({ title: '', content: '', tags: [], is_pinned: false, is_favorite: false });
+            setSelectedNote(nt);
+            await refresh();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const saveNote = async (modified: Partial<Note>) => {
         if (!selectedNote) return;
         setLoading(true);
-        const nt = await updateNote(selectedNote.id, modified);
-        setSelectedNote(nt);
-        await refresh();
-        setLoading(false);
+        setError(null);
+        try {
+            const nt = await updateNote(selectedNote.id, modified);
+            setSelectedNote(nt);
+            await refresh();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const removeNote = async (id: string) => {
         setLoading(true);
-        await deleteNote(id);
-        setSelectedNote(null);
-        await refresh();
-        setLoading(false);
+        setError(null);
+        try {
+            await deleteNote(id);
+            if (selectedNote?.id === id) setSelectedNote(null);
+            await refresh();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const favoriteToggle = async (id: string, favorite: boolean) => {
         setLoading(true);
-        await updateNote(id, { favorite });
-        await refresh();
-        setLoading(false);
+        setError(null);
+        try {
+            await updateNote(id, { is_favorite: favorite });
+            await refresh();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const pinToggle = async (id: string, pinned: boolean) => {
         setLoading(true);
-        await updateNote(id, { pinned });
-        await refresh();
-        setLoading(false);
+        setError(null);
+        try {
+            await updateNote(id, { is_pinned: pinned });
+            await refresh();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCreateTag = async (name: string) => {
-        await createTag(name);
-        await loadTags();
+        setError(null);
+        try {
+            await createTag(name);
+            await loadTags();
+        } catch (e: unknown) {
+            setError(getErrorMessage(e));
+        }
     };
 
     return (
@@ -111,6 +172,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
             selectedNote,
             tags,
             loading,
+            error,
             search,
             setSearch,
             filter,
@@ -129,6 +191,10 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
+/**
+ * PUBLIC_INTERFACE
+ * useNotes hook to access context in components.
+ */
 export function useNotes() {
     const ctx = useContext(NotesContext);
     if (!ctx) throw new Error('useNotes must be used within NotesProvider');
